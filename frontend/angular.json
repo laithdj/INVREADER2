@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/angular.json",
+  "version": 1,
+  "projects": {
+    "investment-analysis": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist/investment-analysis",
+            "index": "src/index.html",
+            "main": "src/main.ts",
+            "polyfills": [
+              "zone.js"
+            ],
+            "assets": [
+              "src/favicon.ico",
+              "src/assets"
+            ],
+            "styles": [
+              "src/styles.css"
+            ],
+            "scripts": [],
+            "tsConfig": "tsconfig.app.json"
+          }
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json",
+            "buildTarget": "investment-analysis:build"
+          }
+        }
+      }
+    }
+  },
+  "defaultProject": "investment-analysis",
+  "cli": {
+    "analytics": "12ab91ca-a1bc-4fe5-9df1-566a3624f1e6"
+  }
+}

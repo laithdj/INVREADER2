@@ -1,0 +1,8 @@
+<h2>Dubai Property Investment Analysis</h2>
+<p>Enter a Dubai property address to generate a comprehensive investment report. You will be redirected to a secure payment page before the report is created.</p>
+<form (ngSubmit)="generate()">
+  <label for="address">Property Address</label>
+  <input id="address" type="text" [(ngModel)]="address" name="address" placeholder="e.g., Jumeirah Beach Residence, Dubai" required />
+  <button type="submit" [disabled]="loading">{{ loading ? 'Sending to Stripe...' : 'Generate Analysis' }}</button>
+</form>
+<div class="error" *ngIf="error">{{ error }}</div>

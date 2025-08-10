@@ -1,0 +1,7 @@
+<div *ngIf="loading">Generating your investment report...</div>
+<div *ngIf="!loading && error" class="error">{{ error }}</div>
+<div *ngIf="!loading && analysis">
+  <h2>Investment Analysis Report</h2>
+  <div class="success-box"><pre style="white-space: pre-wrap">{{ analysis }}</pre></div>
+  <a *ngIf="fileUrl" class="button" [href]="fileUrl" download="investment_report.pdf">Download PDF</a>
+</div>
