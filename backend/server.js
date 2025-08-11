@@ -1,4 +1,4 @@
-// Investment Analysis Backend - Express + Stripe + OpenAI + PDF
+// Investment Analysis Backend (serverless-safe)
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
@@ -7,7 +7,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const Stripe = require('stripe');
 const PDFDocument = require('pdfkit');
-const fs = require('fs');
 const { OpenAI } = require('openai');
 
 const app = express();
@@ -15,17 +14,15 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const stripeSecret = process.env.STRIPE_SECRET_KEY || '';
-if (!stripeSecret) {
-  console.warn('WARN: STRIPE_SECRET_KEY missing. /create-checkout-session will fail until you configure .env');
+if (!/^sk_/.test(stripeSecret)) {
+  console.warn('Stripe secret key missing or invalid. Set STRIPE_SECRET_KEY=sk_... in backend/.env');
 }
 const stripe = Stripe(stripeSecret);
 const DOMAIN = process.env.DOMAIN || 'http://localhost:4200';
 const PORT = process.env.PORT || 4000;
 
-// Health
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-// Create Stripe Checkout Session
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
     const { address } = req.body || {};
@@ -33,18 +30,14 @@ app.post('/api/create-checkout-session', async (req, res) => {
       mode: 'payment',
       payment_method_types: ['card'],
       currency: 'aed',
-      line_items: [
-        {
-          price_data: {
-            currency: 'aed',
-            product_data: { name: `Dubai Investment Report: ${address || 'Address TBC'}` },
-            // amount is in fils (AED * 100)
-            unit_amount: 9000
-          },
-          quantity: 1
-        }
-      ],
-      // store the address so we can read it after payment
+      line_items: [{
+        price_data: {
+          currency: 'aed',
+          product_data: { name: `Dubai Investment Report: ${address || 'Address TBC'}` },
+          unit_amount: 9900
+        },
+        quantity: 1
+      }],
       metadata: { address: address || '' },
       success_url: `${DOMAIN}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${DOMAIN}/`
@@ -52,11 +45,11 @@ app.post('/api/create-checkout-session', async (req, res) => {
     res.json({ id: session.id });
   } catch (e) {
     console.error('Stripe create session error:', e);
-    res.status(500).json({ error: e.message || 'stripe_failed' });
+    const msg = e?.raw?.message || e?.message || 'stripe_failed';
+    res.status(500).json({ error: msg });
   }
 });
 
-// Generate analysis after payment, return text + PDF url
 app.post('/api/analyze', async (req, res) => {
   try {
     const { session_id } = req.body || {};
@@ -68,7 +61,7 @@ app.post('/api/analyze', async (req, res) => {
     }
     const address = (session.metadata && session.metadata.address) || 'Dubai address';
 
-    // Build analysis text (OpenAI is optional)
+    // Build analysis text (OpenAI optional)
     const openaiKey = process.env.OPENAI_API_KEY;
     let analysisText =
 `Dubai Investment Analysis for: ${address}
@@ -78,7 +71,7 @@ Summary
 
 Key Metrics (illustrative only)
 - Gross rental yield: (Annual Rent / Property Price) * 100
-- Vacancy risk: Use neighbourhood occupancy and seasonality
+- Vacancy risk: Use neighbourhood occupancy/seasonality
 - Capital growth drivers: infrastructure, population growth, supply pipeline
 - Comparable rentals & sales: pull comps from your sources
 - Recommendation: Conservative / Balanced / Aggressive`;
@@ -100,34 +93,27 @@ Use concise bullet points.`;
       }
     }
 
-    // Create a simple PDF report
-    const reportsDir = path.join(__dirname, 'reports');
-    if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir);
-    const filename = `report_${Date.now()}.pdf`;
-    const filePath = path.join(reportsDir, filename);
-
-    const doc = new PDFDocument({ margin: 50 });
-    doc.pipe(fs.createWriteStream(filePath));
-    doc.fontSize(18).text('Dubai Property Investment Analysis', { underline: true });
-    doc.moveDown();
-    doc.fontSize(12).text(`Address: ${address}`);
-    doc.moveDown();
-    doc.fontSize(11).text(analysisText);
-    doc.end();
-
-    // Serve reports statically
-    app.use('/reports', express.static(reportsDir));
-
-    res.json({
-      analysis: analysisText,
-      fileUrl: `/reports/${filename}`
+    // Build PDF fully in memory (no filesystem writes)
+    const pdfBuffer = await new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50 });
+      const chunks = [];
+      doc.on('data', (c) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      doc.fontSize(18).text('Dubai Property Investment Analysis', { underline: true });
+      doc.moveDown();
+      doc.fontSize(12).text(`Address: ${address}`);
+      doc.moveDown();
+      doc.fontSize(11).text(analysisText);
+      doc.end();
     });
+    const base64 = pdfBuffer.toString('base64');
+
+    res.json({ analysis: analysisText, fileBase64: `data:application/pdf;base64,${base64}` });
   } catch (e) {
     console.error('Analyze error:', e);
     res.status(500).json({ error: e.message || 'analyze_failed' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API listening on :${PORT}`);
-});
+app.listen(PORT, () => console.log(`API listening on :${PORT}`));

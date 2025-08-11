@@ -15,7 +15,7 @@ export class SuccessComponent implements OnInit {
     const session_id = this.route.snapshot.queryParamMap.get('session_id');
     if (!session_id) { this.error = 'Missing session_id'; this.loading = false; return; }
     this.api.analyze(session_id).subscribe({
-      next: (res: any) => { this.analysis = res.analysis; this.fileUrl = res.fileUrl; this.loading = false; },
+      next: (res: any) => { this.analysis = res.analysis; this.fileUrl = res.fileBase64 || res.fileUrl; this.loading = false; },
       error: (err) => { this.error = err?.error?.error || 'Failed to generate analysis'; this.loading = false; }
     });
   }

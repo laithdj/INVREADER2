@@ -16,9 +16,11 @@ export class HomeComponent {
     this.loading = true;
     this.error = null;
     try {
+      if (!/^pk_/.test(environment.stripePublicKey)) {
+        throw new Error('environment.stripePublicKey must be a publishable key (pk_...).');
+      }
       const stripe = await loadStripe(environment.stripePublicKey);
-      if (!stripe) throw new Error('Stripe failed to load. Check publishable key.');
-
+      if (!stripe) throw new Error('Stripe failed to load. Check publishable key');
       const resp = await lastValueFrom(this.api.createCheckoutSession(this.address));
       if (!resp?.id) throw new Error('No session id from server');
       const { error } = await stripe.redirectToCheckout({ sessionId: resp.id });
