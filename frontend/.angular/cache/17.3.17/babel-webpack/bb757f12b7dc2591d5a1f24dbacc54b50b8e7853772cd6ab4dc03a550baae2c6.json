@@ -1,0 +1,1 @@
+{"ast":null,"code":"export const environment = {\n  production: false,\n  apiBase: '/api',\n  stripePublicKey: 'pk'\n};","map":null,"metadata":{},"sourceType":"module","externalDependencies":[]}
